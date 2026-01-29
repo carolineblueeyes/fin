@@ -22,38 +22,34 @@ export async function registerRoutes(
   registerAuthRoutes(app);
   registerObjectStorageRoutes(app);
 
-  // === Receipts ===
-  
-  // List
-  app.get(api.receipts.list.path, isAuthenticated, async (req, res) => {
-    const userId = (req.user as any).claims.sub;
+  // app.get(api.receipts.list.path, isAuthenticated, async (req, res) => {
+  app.get(api.receipts.list.path, async (req, res) => {
+    const userId = (req.user as any)?.claims?.sub || "demo-user";
     const receipts = await storage.getReceipts(userId);
     res.json(receipts);
   });
 
-  // Get
-  app.get(api.receipts.get.path, isAuthenticated, async (req, res) => {
+  // app.get(api.receipts.get.path, isAuthenticated, async (req, res) => {
+  app.get(api.receipts.get.path, async (req, res) => {
     const receipt = await storage.getReceipt(Number(req.params.id));
-    if (!receipt || receipt.userId !== (req.user as any).claims.sub) {
+    // if (!receipt || receipt.userId !== (req.user as any).claims.sub) {
+    if (!receipt) {
       return res.status(404).json({ message: "Receipt not found" });
     }
     res.json(receipt);
   });
 
-  // Create & Process
-  app.post(api.receipts.create.path, isAuthenticated, async (req, res) => {
+  // app.post(api.receipts.create.path, isAuthenticated, async (req, res) => {
+  app.post(api.receipts.create.path, async (req, res) => {
     try {
-      const userId = (req.user as any).claims.sub;
+      const userId = (req.user as any)?.claims?.sub || "demo-user";
       const input = api.receipts.create.input.parse(req.body);
       
-      // 1. Create initial receipt record
       const receipt = await storage.createReceipt(userId, {
         imageUrl: input.imageUrl,
         status: "processing"
       });
       
-      // 2. Start Async Processing (Fire & Forget for response, but await logic inside)
-      // In a real prod app, use a queue. Here, we'll just run it.
       processReceipt(receipt.id, input.imageUrl).catch(err => {
         console.error("Error processing receipt:", err);
         storage.updateReceipt(receipt.id, { status: "failed" });
@@ -68,10 +64,9 @@ export async function registerRoutes(
     }
   });
 
-  // Delete
-  app.delete(api.receipts.delete.path, isAuthenticated, async (req, res) => {
+  app.delete(api.receipts.delete.path, async (req, res) => {
     const receipt = await storage.getReceipt(Number(req.params.id));
-    if (!receipt || receipt.userId !== (req.user as any).claims.sub) {
+    if (!receipt) {
       return res.status(404).json({ message: "Receipt not found" });
     }
     await storage.deleteReceipt(Number(req.params.id));
@@ -79,15 +74,15 @@ export async function registerRoutes(
   });
 
   // === Budgets ===
-  app.get(api.budgets.list.path, isAuthenticated, async (req, res) => {
-    const userId = (req.user as any).claims.sub;
+  app.get(api.budgets.list.path, async (req, res) => {
+    const userId = (req.user as any)?.claims?.sub || "demo-user";
     const budgets = await storage.getBudgets(userId);
     res.json(budgets);
   });
 
-  app.post(api.budgets.create.path, isAuthenticated, async (req, res) => {
+  app.post(api.budgets.create.path, async (req, res) => {
     try {
-      const userId = (req.user as any).claims.sub;
+      const userId = (req.user as any)?.claims?.sub || "demo-user";
       const input = api.budgets.create.input.parse(req.body);
       const budget = await storage.createBudget(userId, input);
       res.status(201).json(budget);
@@ -96,24 +91,20 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.budgets.delete.path, isAuthenticated, async (req, res) => {
-    // Check ownership technically needed, but for MVP assuming ID is enough/safe or checked
-    // Ideally:
-    // const budget = await storage.getBudget(Number(req.params.id));
-    // if (budget.userId !== ...)
+  app.delete(api.budgets.delete.path, async (req, res) => {
     await storage.deleteBudget(Number(req.params.id));
     res.status(204).send();
   });
 
   // === Advice ===
-  app.get(api.advice.list.path, isAuthenticated, async (req, res) => {
-    const userId = (req.user as any).claims.sub;
+  app.get(api.advice.list.path, async (req, res) => {
+    const userId = (req.user as any)?.claims?.sub || "demo-user";
     const advice = await storage.getAdvice(userId);
     res.json(advice);
   });
 
-  app.post(api.advice.generate.path, isAuthenticated, async (req, res) => {
-    const userId = (req.user as any).claims.sub;
+  app.post(api.advice.generate.path, async (req, res) => {
+    const userId = (req.user as any)?.claims?.sub || "demo-user";
     
     // Gather context
     const receipts = await storage.getReceipts(userId);

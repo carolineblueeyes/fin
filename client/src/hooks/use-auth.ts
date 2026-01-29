@@ -37,10 +37,21 @@ export function useAuth() {
     },
   });
 
+  // Mock user for demo mode
+  const demoUser: User = {
+    id: "demo-user",
+    email: "demo@example.com",
+    firstName: "Demo",
+    lastName: "User",
+    profileImageUrl: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
   return {
-    user,
-    isLoading,
-    isAuthenticated: !!user,
+    user: user || demoUser,
+    isLoading: false,
+    isAuthenticated: true,
     logout: logoutMutation.mutate,
     isLoggingOut: logoutMutation.isPending,
   };
