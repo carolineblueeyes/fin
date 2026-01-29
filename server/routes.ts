@@ -134,11 +134,27 @@ export async function registerRoutes(
 async function processReceipt(receiptId: number, imageUrl: string) {
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o", // or gpt-4o-mini if available and cheaper/faster
+      model: "gpt-5.1", // Use latest model as per blueprint
       messages: [
         {
           role: "system",
-          content: "You are a receipt scanner. Extract the merchant name, date, total amount (in cents), and items (name, price in cents, category) from the receipt image. Return ONLY valid JSON."
+          content: `You are an expert financial assistant. Analyze the receipt image and extract:
+1. Merchant name
+2. Date of purchase
+3. Total amount (as an integer in CENTS, e.g., $10.50 -> 1050)
+4. Items: array of { name: string, price: number (in CENTS), category: string }
+
+Assign a specific category to each item from this list: "Food & Dining", "Groceries", "Shopping", "Transport", "Utilities", "Health", "Entertainment", "Personal Care", "Education", "Other".
+
+Return ONLY valid JSON in this format:
+{
+  "merchantName": "...",
+  "date": "YYYY-MM-DD",
+  "totalAmount": 0,
+  "items": [
+    { "name": "...", "price": 0, "category": "..." }
+  ]
+}`
         },
         {
           role: "user",
@@ -161,11 +177,14 @@ async function processReceipt(receiptId: number, imageUrl: string) {
     
     const data = JSON.parse(content);
     
-    // Validate/Clean data structure roughly
-    const merchantName = data.merchantName || data.merchant || "Unknown Merchant";
-    const totalAmount = data.totalAmount || data.total || 0;
+    // Ensure all amounts are integers (cents)
+    const merchantName = data.merchantName || "Unknown Merchant";
+    const totalAmount = Math.round(data.totalAmount || 0);
     const date = data.date ? new Date(data.date) : new Date();
-    const items = data.items || [];
+    const items = (data.items || []).map((item: any) => ({
+      ...item,
+      price: Math.round(item.price || 0)
+    }));
 
     await storage.updateReceipt(receiptId, {
       merchantName,
@@ -181,19 +200,29 @@ async function processReceipt(receiptId: number, imageUrl: string) {
 }
 
 async function generateFinancialAdvice(receipts: any[], budgets: any[]) {
-  // Simplified prompt
-  const recentReceipts = receipts.slice(0, 10);
+  // Enhanced context for better advice
+  const recentReceipts = receipts.slice(0, 15);
+  const spendingByCategory = recentReceipts.reduce((acc: any, r: any) => {
+    (r.items || []).forEach((item: any) => {
+      const cat = item.category || "Other";
+      acc[cat] = (acc[cat] || 0) + item.price;
+    });
+    return acc;
+  }, {});
+
   const prompt = `
-    Based on the following financial data, provide 3 short, actionable financial tips.
+    Analyze this financial profile and provide 3 highly specific, actionable tips to save money.
     
     Budgets: ${JSON.stringify(budgets)}
-    Recent Expenses: ${JSON.stringify(recentReceipts.map(r => ({ merchant: r.merchantName, amount: r.totalAmount, date: r.date })))}
+    Spending by Category (in cents): ${JSON.stringify(spendingByCategory)}
+    Recent Merchant Activity: ${JSON.stringify(recentReceipts.map(r => ({ merchant: r.merchantName, total: r.totalAmount })))}
     
-    Format: "1. Tip one... 2. Tip two... 3. Tip three..."
+    The user wants to optimize their budget and categorize their spending better.
+    Format your response as a numbered list with bold headings.
   `;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4o",
+    model: "gpt-5.1",
     messages: [{ role: "user", content: prompt }],
   });
 
