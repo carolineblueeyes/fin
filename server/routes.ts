@@ -1,9 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replit_integrations/auth";
-import { registerAuthRoutes } from "./replit_integrations/auth";
-import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import OpenAI from "openai";
@@ -13,41 +10,40 @@ const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
+// Simple authentication middleware (demo version)
+const isAuthenticated = (req: any, res: any, next: any) => {
+  // In a real app, you'd implement proper authentication
+  req.user = { claims: { sub: "demo-user" } }; // Mock user
+  next();
+};
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Setup Integrations
-  await setupAuth(app);
-  registerAuthRoutes(app);
-  registerObjectStorageRoutes(app);
-
-  // app.get(api.receipts.list.path, isAuthenticated, async (req, res) => {
+  // Routes without authentication for demo purposes
   app.get(api.receipts.list.path, async (req, res) => {
     const userId = (req.user as any)?.claims?.sub || "demo-user";
     const receipts = await storage.getReceipts(userId);
     res.json(receipts);
   });
 
-  // app.get(api.receipts.get.path, isAuthenticated, async (req, res) => {
   app.get(api.receipts.get.path, async (req, res) => {
     const receipt = await storage.getReceipt(Number(req.params.id));
-    // if (!receipt || receipt.userId !== (req.user as any).claims.sub) {
     if (!receipt) {
       return res.status(404).json({ message: "Receipt not found" });
     }
     res.json(receipt);
   });
 
-  // app.post(api.receipts.create.path, isAuthenticated, async (req, res) => {
   app.post(api.receipts.create.path, async (req, res) => {
     try {
       const userId = (req.user as any)?.claims?.sub || "demo-user";
       const input = api.receipts.create.input.parse(req.body);
       
       const receipt = await storage.createReceipt(userId, {
-        imageUrl: input.imageUrl,
-        status: "processing"
+        userId,
+        imageUrl: input.imageUrl
       });
       
       processReceipt(receipt.id, input.imageUrl).catch(err => {
@@ -115,6 +111,40 @@ export async function registerRoutes(
     
     const advice = await storage.createAdvice(userId, adviceContent, "manual_generation");
     res.status(201).json(advice);
+  });
+
+  // === Auth ===
+  app.get('/api/auth/user', async (req, res) => {
+    // Return mock user data for demo purposes
+    const user = {
+      id: "demo-user",
+      email: "demo@example.com",
+      firstName: "Demo",
+      lastName: "User",
+      profileImageUrl: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    res.json(user);
+  });
+
+  // === Uploads ===
+  app.post('/api/uploads/request-url', async (req, res) => {
+    // For demo purposes, return a placeholder URL
+    // In a real app, you would generate a signed URL for upload
+    const fileName = `receipt_${Date.now()}_${Math.random().toString(36).substring(2, 10)}.jpg`;
+    res.json({
+      url: `/uploads/${fileName}`, // Local upload endpoint
+      fields: {}
+    });
+  });
+  
+  // Handle actual file uploads
+  app.post('/uploads/:filename', async (req, res) => {
+    // In a real implementation, you would save the file to disk/cloud storage
+    // For demo purposes, we just return a placeholder URL
+    const imageUrl = `https://via.placeholder.com/600x400.png?text=Uploaded+Receipt`;
+    res.json({ imageUrl });
   });
 
   return httpServer;

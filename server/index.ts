@@ -1,3 +1,6 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
@@ -90,14 +93,11 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || "5000", 10);
-  httpServer.listen(
-    {
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    },
-    () => {
-      log(`serving on port ${port}`);
-    },
-  );
+  
+  // Disable IPv6 dual-stack to avoid ENOTSUP error on Windows
+  httpServer.listen(port, "127.0.0.1", () => {
+    // Get the actual port in case 0 was specified (random port)
+    const actualPort = (httpServer.address() as import("net").AddressInfo).port;
+    log(`serving on port ${actualPort}`);
+  });
 })();

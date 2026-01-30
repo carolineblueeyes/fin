@@ -4,7 +4,6 @@ export * from "./models/chat";
 import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { relations } from "drizzle-orm";
 import { users } from "./models/auth";
 
 // === Receipts ===
@@ -17,12 +16,12 @@ export const receipts = pgTable("receipts", {
   currency: text("currency").default("USD"),
   date: timestamp("date"),
   status: text("status").notNull().default("processing"), // processing, completed, failed
-  items: jsonb("items").$type<Array<{ name: string; price: number; category?: string }>>(), 
+  items: jsonb("items").$type<Array<{ name: string; price: number; category?: string }>>(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertReceiptSchema = createInsertSchema(receipts).omit({ 
-  id: true, 
+export const insertReceiptSchema = createInsertSchema(receipts).omit({
+  id: true,
   createdAt: true,
   status: true,
   items: true, // Items usually added after processing
@@ -65,4 +64,3 @@ export type Advice = typeof advice.$inferSelect;
 export type CreateReceiptRequest = { imageUrl: string }; // Minimal for creation, AI fills the rest
 export type UpdateReceiptRequest = Partial<Receipt>;
 export type CreateBudgetRequest = InsertBudget;
-
