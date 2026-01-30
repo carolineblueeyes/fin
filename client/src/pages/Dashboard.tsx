@@ -7,7 +7,8 @@ import {
   TrendingUp, 
   CreditCard, 
   Activity,
-  ArrowRight
+  ArrowRight,
+  Receipt
 } from "lucide-react";
 import { 
   BarChart, 
