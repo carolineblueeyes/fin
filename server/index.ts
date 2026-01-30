@@ -94,10 +94,10 @@ app.use((req, res, next) => {
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || "5000", 10);
   
-  // Disable IPv6 dual-stack to avoid ENOTSUP error on Windows
-  httpServer.listen(port, "127.0.0.1", () => {
-    // Get the actual port in case 0 was specified (random port)
-    const actualPort = (httpServer.address() as import("net").AddressInfo).port;
-    log(`serving on port ${actualPort}`);
+  // In production (like on Render), bind to 0.0.0.0 as required
+  const host = process.env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1";
+  
+  httpServer.listen(port, host, () => {
+    log(`serving on port ${port}`);
   });
 })();
