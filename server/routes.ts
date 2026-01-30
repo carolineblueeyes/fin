@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
@@ -134,16 +135,18 @@ export async function registerRoutes(
     // In a real app, you would generate a signed URL for upload
     const fileName = `receipt_${Date.now()}_${Math.random().toString(36).substring(2, 10)}.jpg`;
     res.json({
-      url: `/uploads/${fileName}`, // Local upload endpoint
+      url: `/api/uploads/${fileName}`, // Local upload endpoint
       fields: {}
     });
   });
   
   // Handle actual file uploads
-  app.post('/uploads/:filename', async (req, res) => {
-    // In a real implementation, you would save the file to disk/cloud storage
-    // For demo purposes, we just return a placeholder URL
-    const imageUrl = `https://via.placeholder.com/600x400.png?text=Uploaded+Receipt`;
+  app.post('/api/uploads/:filename', express.raw({ type: 'image/*', limit: '5mb' }), async (req, res) => {
+    // In a real implementation, you would save the file to cloud storage
+    // For demo purposes, we'll convert the image to a data URL
+    const buffer = Buffer.from(req.body);
+    const base64Image = buffer.toString('base64');
+    const imageUrl = `data:image/jpeg;base64,${base64Image}`;
     res.json({ imageUrl });
   });
 
